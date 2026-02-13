@@ -1,0 +1,15 @@
+# Settings 
+DELAY_1 = 10
+DELAY_2 = 20
+DELAY_3 = 30
+DELAY_4 = 40
+
+TRIGG_CH = 8
+DET_CH1 = 1
+DET_CH2 = 2
+DET_CH3 = 3
+
+DET_CHS = [DET_CH1, DET_CH2, DET_CH3]
+
+SINGLE_DET_CHS = [chan for chan in DET_CHS]
+COINCIDENCE_CHS = [[TRIGG_CH, ch] for ch in DET_CHS] 
