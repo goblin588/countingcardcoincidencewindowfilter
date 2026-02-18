@@ -92,7 +92,8 @@ class Logic16(Detector):
             for k,v in channel_delay_dict.items():
                 assert k in range(1, self._total_channels+1)
                 self.delays.update({k:v})
-                self.MyTagger.SetDelay(k, (v*1e-9)/self._resolution)
+                m = int(((v)*1e-9)/self._resolution)
+                self.MyTagger.SetDelay(k, m)
         else:
             self.delays = {k:default_delay for k in range(1, self._total_channels+1)}
             self.set_delays(channel_delay_dict=channel_delay_dict)
