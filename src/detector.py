@@ -3,15 +3,27 @@ from collections.abc import Sequence
 import sys
 import time
 import clr
+import os
+
+from System import Array, Byte, Int64, Int32
+
 import pyvisa as visa
 import numpy as np
 from ThorlabsPM100 import ThorlabsPM100
-from System import Array, Byte, Int64, Int32
+
+
+# Add Logic16 driver to the path (ensure it's the 64-bit version and permissions are granted)
+
+dll_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '.', 'bin', 'ttInterface.dll'))
+print("Loading DLL from:", dll_path)
+
+clr.AddReference(dll_path)
+
 from TimeTag import TTInterface, Logic
 
 # Add Logic16 driver to the path (ensure it's the 64-bit version and permissions are granted)
-sys.path.append('.')
-clr.AddReference('.\\bin\\ttInterface.dll')
+# sys.path.append('.')
+# clr.AddReference('.\\bin\\ttInterface.dll')
 
 # Abstract base class for detectors
 class Detector:
@@ -27,7 +39,7 @@ def binary_code(channel):
     if isinstance(channel, Sequence):
         return sum([binary_code(k) for k in channel])
     else:
-        return 2**(channel-1)
+        return int(2**(channel-1))
 
 # Logic16 class for controlling UQDevices hardware
 class Logic16(Detector):
@@ -52,7 +64,7 @@ class Logic16(Detector):
         self.coincidences = None
 
         self.TimerCounter1 = Int32
-        self.clear_buffer()
+        self.clear_buffer() 
 
     def __enter__(self):
         """
