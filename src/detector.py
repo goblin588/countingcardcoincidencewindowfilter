@@ -32,14 +32,10 @@ class Detector:
         pass
 
 # Helper function to convert channel to binary code
-def binary_code(channel):
-    """
-    For use in Logic16
-    """
+def binary_code(channel: int | Sequence[int]) -> int:
     if isinstance(channel, Sequence):
-        return sum([binary_code(k) for k in channel])
-    else:
-        return int(2**(channel-1))
+        return sum(1 << (ch - 1) for ch in channel)
+    return 1 << (channel - 1)
 
 # Logic16 class for controlling UQDevices hardware
 class Logic16(Detector):
@@ -87,10 +83,14 @@ class Logic16(Detector):
             self.coincidences = coincidences
             self._bcoincidences = [binary_code(pair) for pair in coincidences]
 
-    def set_delays(self, channel_delay_dict=dict(), default_delay=100):
+    def set_delays(self, channel_delay_dict: dict | None = None, default_delay: int = 100):
+        if channel_delay_dict is None:
+           channel_delay_dict = {}
+        
         if hasattr(self,'delays'):
             for k,v in channel_delay_dict.items():
-                assert k in range(1, self._total_channels+1)
+                if not 1 <= k <= self._total_channels:
+                    raise ValueError(f"Invalid channel {k}")
                 self.delays.update({k:v})
                 m = int(((v)*1e-9)/self._resolution)
                 self.MyTagger.SetDelay(k, m)
@@ -102,7 +102,8 @@ class Logic16(Detector):
         # Configure the channel for measurement
         if channel_threshold_dict is not None:
             for k,v in channel_threshold_dict.items():
-                assert k in range(1, self._total_channels+1)
+                if not 1 <= k <= self._total_channels:
+                    raise ValueError(f"Invalid channel {k}")
                 self.MyTagger.SetInputThreshold(k, v)
         else:
             for k in range(1, self._total_channels+1): # 16 channels if low-resolution
@@ -195,5 +196,5 @@ class Logic16(Detector):
                 has_latched = 0
             total_c_counts += c_counts
             total_s_counts += s_counts
-            counting_time += timecounter*5e-9
+            counting_time += timecounter * self._resolution
         return total_c_counts, total_s_counts, counting_time
