@@ -9,7 +9,7 @@ from System import Array, Byte, Int64, Int32
 
 import pyvisa as visa
 import numpy as np
-from ThorlabsPM100 import ThorlabsPM100
+# from ThorlabsPM100 import ThorlabsPM100
 
 
 # Add Logic16 driver to the path (ensure it's the 64-bit version and permissions are granted)
