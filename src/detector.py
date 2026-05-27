@@ -112,7 +112,7 @@ class Logic16(Detector):
     def set_coincidence_window(self, window):
         assert self._logic_mode
         self._coincidence_window = window*1e-9
-        self.MyLogic.SetWindowWidth(self._coincidence_window/self._resolution)
+        self.MyLogic.SetWindowWidth(Int32(int(self._coincidence_window / self._resolution)))
 
     def get_status(self):
         msg = '>>> Logic16 counting card\n'
