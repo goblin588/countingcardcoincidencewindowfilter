@@ -1,0 +1,7 @@
+cffi==2.0.0
+clr-loader==0.3.1
+numpy==2.4.6
+pycparser==3.0
+pythonnet==3.1.0
+pyvisa==1.16.2
+typing-extensions==4.15.0
