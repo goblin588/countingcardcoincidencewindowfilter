@@ -132,7 +132,8 @@ class Logic16(Detector):
         Calculates the count for a single channel.
         Uses binary encoding for the positive and negative channels.
         """
-        return self.MyLogic.CalcCount(binary_code(pos), binary_code(neg))
+        neg_code = binary_code(neg) if neg != 0 else 0
+        return self.MyLogic.CalcCount(binary_code(pos), neg_code)
 
     def read_counts(self, pos_coincidence, pos_singles, neg_singles=[0]):
         """
