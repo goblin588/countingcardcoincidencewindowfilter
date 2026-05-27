@@ -1,90 +1,118 @@
 from detector import Logic16
-from settings import SINGLE_DET_CHS, COINCIDENCE_WINDOW, COINCIDENCE_CHS, DELAYS
+from settings import TRIGG_CH, DET_CHS, COINCIDENCE_WINDOW, DELAYS
 import time
-import numpy as np
 
-def stream_delayed_coincidence_counts():
-    print("Streaming delayed coincidence counts...")
 
-    # Initialize coincidences dictionary with zero counts for each pair
-    coincidences = {tuple(pair): 0 for pair in COINCIDENCE_CHS}
+def stream_herald_and_signal(
+    herald_ch: int = TRIGG_CH,
+    signal_ch: int = DET_CHS[0],
+    duration: float = 20.0,
+    coincidence_window: float = COINCIDENCE_WINDOW,
+    delays: list = DELAYS,
+):
+    """
+    Streams singles counts from a herald channel and a single signal channel,
+    plus their coincidence rate, in near-real-time.
 
-    with Logic16(coincidence_window=COINCIDENCE_WINDOW, logic_mode=True) as logic:
+    Args:
+        herald_ch: Herald/trigger channel number.
+        signal_ch: Signal detector channel number.
+        duration: How long to stream for, in seconds.
+        coincidence_window: Coincidence window in ns.
+        delays: List of per-channel delays (index = channel - 1).
+    """
+    singles_chs = [herald_ch, signal_ch]
+    coincidence_chs = [[herald_ch, signal_ch]]
+    channel_delays = {i + 1: delays[i] for i in range(min(len(delays), 8))}
+
+    print(f"Streaming herald (ch {herald_ch}) and signal (ch {signal_ch})...")
+
+    with Logic16(coincidence_window=coincidence_window, logic_mode=True) as logic:
         logic.set_input_threshold(default_threshold=0.5)
-        # logic.set_channels(
-        #     singles=SINGLE_DET_CHS,
-        #     coincidences=COINCIDENCE_CHS
-        # )
+        logic.set_delays(channel_delays)
 
-        logic.set_delays({
-            1: DELAYS[0],  # Delay for channel 1
-            2: DELAYS[1],  # Delay for channel 2
-            3: DELAYS[2],  # Delay for channel 3
-            4: DELAYS[3],  # Delay for channel 4
-            5: DELAYS[4],  # Delay for channel 5 (if used)
-            6: DELAYS[5],  # Delay for channel 6 (if used)
-            7: DELAYS[6],  # Delay for channel 7 (if used
-            8: DELAYS[7],  # Delay for channel 8 (if used)
-        })
-
-        samples = 20
-        for i in range(samples):
-            c_counts, s_counts, delta_t = logic.read_counts(
-                pos_coincidence=COINCIDENCE_CHS,
-                pos_singles=SINGLE_DET_CHS
-            )  
-
-            # Accumulate coincidence counts
-            for idx, pair in enumerate(COINCIDENCE_CHS):
-                coincidences[tuple(pair)] += c_counts[idx]
-
-            # Optional: print live single counts
-            for ch, count in zip(SINGLE_DET_CHS, s_counts):
-                print(f"Channel {ch} counts: {count}")
-
-            # Short delay between loops (optional)
-            time.sleep(0.1)
-
-    # Print accumulated coincidences at the end
-    print("\n=== Total Coincidence Counts ===")
-    for key, count in coincidences.items():
-        print(f"Channels {key} coincidence counts: {count}")
-
-
-def live_single_channel_stream(duration=10.0):
-    """
-    Streams counts from a single channel in near-real-time.
-    """
-    print("Starting live counts...")
-    
-    with Logic16(logic_mode=True, integration_window=10.0) as logic:
-        # logic.set_input_threshold(default_threshold=0.5)
-        # logic.set_coincidence_window(2)  # ns
-        # logic._integration_window = 0.5  # seconds, for very short integration (antilatch safe)
-        # logic.set_delays({
-        #     1: 100,  # No delay for channel 1
-        #     2: 24  # No delay for channel 2
-        # })
-
-        # logic.set_channels(singles=SINGLE_DET_CHS, coincidences=COINCIDENCE_CHS)
-        
         start_time = time.time()
-        
         while (time.time() - start_time) < duration:
-            # Read counts quickly, with very short integration (antilatch safe)
-            counts, _, delta_t = logic.read_counts(
-                pos_coincidence=COINCIDENCE_CHS,
-                pos_singles=SINGLE_DET_CHS,
+            c_counts, s_counts, delta_t = logic.read_counts(
+                pos_coincidence=coincidence_chs,
+                pos_singles=singles_chs,
             )
-            
-            # counts is numpy array, one value per channel
-            print(f'pos_singles: {SINGLE_DET_CHS}, pos_coincidence: {COINCIDENCE_CHS}, counts: {counts}, delta_t: {delta_t:.6f} s')
-            # print(f"Channel {SINGLE_DET_CHS[0]} counts: {counts[0]} | Δt: {delta_t:.6f} s | Freq: {counts[0]/delta_t:.2f} Hz")
-            
-            # Optional: very short sleep to avoid hammering CPU
+
+            herald_rate = s_counts[0] / delta_t
+            signal_rate = s_counts[1] / delta_t
+            coinc_rate = c_counts[0] / delta_t
+
+            print(
+                f"Herald (ch {herald_ch}): {herald_rate:.1f} Hz | "
+                f"Signal (ch {signal_ch}): {signal_rate:.1f} Hz | "
+                f"Coincidences: {coinc_rate:.1f} Hz | "
+                f"Δt: {delta_t:.4f} s"
+            )
+
             time.sleep(0.05)
 
-if __name__ == "__main__":
-    # live_single_channel_stream(duration=20.0)  
-    stream_delayed_coincidence_counts()
 
+def scan_coincidences_over_delays(
+    herald_ch: int = TRIGG_CH,
+    signal_chs: list = DET_CHS,
+    coincidence_window: float = COINCIDENCE_WINDOW,
+    delays: list = DELAYS,
+    samples: int = 20,
+):
+    """
+    Accumulates coincidence counts between a herald channel and multiple signal
+    channels, each with an independent delay set via the delays list.
+
+    Args:
+        herald_ch: Herald/trigger channel number.
+        signal_chs: List of signal detector channel numbers.
+        coincidence_window: Coincidence window in ns.
+        delays: List of per-channel delays (index = channel - 1).
+        samples: Number of read_counts samples to accumulate over.
+    """
+    singles_chs = [herald_ch, *signal_chs]
+    coincidence_chs = [[herald_ch, ch] for ch in signal_chs]
+    channel_delays = {i + 1: delays[i] for i in range(min(len(delays), 8))}
+
+    # Accumulated counts and total integration time per pair
+    accumulated = {tuple(pair): 0 for pair in coincidence_chs}
+    total_time = 0.0
+
+    print(f"Scanning coincidences: herald ch {herald_ch} vs signal chs {signal_chs}")
+    print(f"Delays (ns): { {ch: delays[ch - 1] for ch in signal_chs} }")
+
+    with Logic16(coincidence_window=coincidence_window, logic_mode=True) as logic:
+        logic.set_input_threshold(default_threshold=0.5)
+        logic.set_delays(channel_delays)
+
+        for i in range(samples):
+            c_counts, s_counts, delta_t = logic.read_counts(
+                pos_coincidence=coincidence_chs,
+                pos_singles=singles_chs,
+            )
+            total_time += delta_t
+
+            for idx, pair in enumerate(coincidence_chs):
+                accumulated[tuple(pair)] += c_counts[idx]
+
+            # Live singles readout
+            for ch, count in zip(singles_chs, s_counts):
+                print(f"  Ch {ch}: {count / delta_t:.1f} Hz", end="  ")
+            print(f"| Δt: {delta_t:.4f} s  [{i + 1}/{samples}]")
+
+            time.sleep(0.1)
+
+    print("\n=== Accumulated Coincidence Counts ===")
+    for pair, count in accumulated.items():
+        rate = count / total_time if total_time > 0 else 0.0
+        delay = delays[pair[1] - 1]
+        print(
+            f"  Ch {pair[0]} & Ch {pair[1]} "
+            f"(delay {delay} ns): "
+            f"{count} counts  |  {rate:.2f} Hz avg"
+        )
+
+
+if __name__ == "__main__":
+    stream_herald_and_signal(duration=20.0)
+    # scan_coincidences_over_delays(samples=20)
